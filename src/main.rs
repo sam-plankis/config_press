@@ -1,12 +1,17 @@
-use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{self, BufRead};
 use std::path::Path;
 
 use env_logger;
+use indexmap::IndexMap;
 use log::{debug, error, log_enabled, info, Level};
 use regex::Regex;
+
+enum LineMap {
+    LineNumber(usize),
+    LineString(String)
+}
 
 fn main() {
     env_logger::init();
@@ -17,11 +22,9 @@ fn main() {
     debug!("File to flatten: {}", filename);
 
     let re = Regex::new(r"^(\s+)(\S.+)$|^(\S.+)$").unwrap();
-    let mut new_line = String::from("");
-    let mut flat_config = String::from("BEGIN FLAT CONFIG\n");
-    let mut current_spaces: usize = 0;
+    let mut flat_config = String::from("");
     let mut previous_spaces: usize = 0;
-    let mut line_map: HashMap<usize, String> = HashMap::new();
+    let mut line_map: IndexMap<usize, String> = IndexMap::new();
 
     if let Ok(lines) = read_lines(filename) {
         // Consumes the iterator, returns an (Optional) String
@@ -37,34 +40,42 @@ fn main() {
                 let current_spaces: usize = *&text1.chars().count();
                 debug!("Current spaces: {}", current_spaces);
                 debug!("Previous spaces: {}", previous_spaces);
-                if current_spaces == previous_spaces {
-                    debug!("Condition 1 found!");
-                    new_line = "".to_string();
-                    for (spaces, string) in &line_map {
-                        if spaces < &current_spaces {
-                            new_line.push_str(&string);
-                        }
-                        new_line.push_str(&string_line)
+                if current_spaces <= previous_spaces {
+                    debug!("current_spaces <= previous_spaces");
+                    let mut new_line = "".to_string();
+                    for (_spaces, string) in &line_map {
+                        &new_line.push_str(&string);
+                        &new_line.push_str(" ");
                     }
-                    line_map.insert(current_spaces, text3.to_string());
+                    debug!("new_line: {}", &new_line);
+                    if &new_line != "" {
+                        flat_config.push_str(&new_line);
+                        flat_config.push_str("\n");
+                    }
+                    if *&text2.chars().count() > 0 {
+                        &line_map.insert(current_spaces, text2.to_string());
+                    } else {
+                        &line_map.insert(current_spaces, text3.to_string());
+                    }
+                    let mut to_remove = vec![];
+                    for (spaces, _string) in &line_map {
+                        if spaces > &current_spaces {
+                            to_remove.push(spaces.clone());
+                        }
+                    }
+                    for spaces_to_remove in to_remove {
+                        debug!("spaces_to_remove: {:?}", spaces_to_remove);
+                        &line_map.remove(&spaces_to_remove);
+                    }
                     debug!("line_map updated to: {:?}", &line_map);
                 }
                 if current_spaces > previous_spaces {
-                    debug!("Condition 2 found!");
-                    new_line.push_str(" ");
-                    new_line.push_str(&text2);
-                    debug!("new_line updated to: {}", &new_line);
-                    line_map.insert(current_spaces, String::from(text2));
+                    debug!("current_spaces > previous_spaces");
+                    // Continue growing the line map.
+                    &line_map.insert(current_spaces, String::from(text2));
                     debug!("line_map updated to: {:?}", &line_map);
                 }
-                if current_spaces < previous_spaces {
-                    debug!("Condition 3 found!");
-                    flat_config.push_str(&new_line);
-                    flat_config.push_str("\n");
-                    new_line = "".to_string();
-                }
                 previous_spaces = *&text1.chars().count();
-                debug!("Previous spaces updated: {}", previous_spaces);
             }
         }
     }
