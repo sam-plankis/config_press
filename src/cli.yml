@@ -1,0 +1,40 @@
+name: Config Press
+version: "1.0"
+author: Sam Plankis <sam-plankis@pm.me>
+about: Hierarchical configuration flattener written in Rust.
+args:
+    - config:
+        short: c
+        long: config
+        value_name: FILE
+        about: Sets a custom config file
+        takes_value: true
+    - file:
+        about: Sets the input file to use
+        required: true
+        index: 1
+    - indent:
+        short: i
+        long: indent
+        about: Set a custom origin indentation (default 0)
+        required: false
+        takes_value: true
+    - skip:
+        short: s
+        long: skip
+        about: Skip lines with the given word 
+        required: false
+        takes_value: true
+    - verbose:
+        short: v
+        multiple: true
+        about: Sets the level of verbosity
+subcommands:
+    - test:
+        about: controls testing features
+        version: "1.3"
+        author: Someone E. <someone_else@other.com>
+        args:
+            - debug:
+                short: d
+                about: print debug information

@@ -1,31 +1,52 @@
-use std::env;
 use std::fs;
 use std::io::{self, BufRead};
 use std::path::Path;
 
+use clap::{App, load_yaml};
 use env_logger;
 use indexmap::IndexMap;
+
 use log::{debug, error, log_enabled, info, Level};
 use regex::Regex;
 
-enum LineMap {
-    LineNumber(usize),
-    LineString(String)
-}
-
 fn main() {
     env_logger::init();
-    let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
+    let yaml = load_yaml!("cli.yml");
+    let matches = App::from(yaml).get_matches();
+    /*
+    if let Some(file) = matches.value_of("file") {
+        let filename = String::from(file);
+        debug!("File to flatten: {}", file);
+    }
+    if let Some(indent) = matches.value_of("indent") {
+        let indent: usize = indent.parse::<usize>().unwrap();
+        debug!("Custom indent: {}", indent);
+    }
+    if let Some(skip) = matches.value_of("skip") {
+        let skip= String::from(skip);
+        debug!("Skip lines with word: {}", skip);
+    }
+    */
+    let filename: String = matches
+        .value_of("file")
+        .unwrap_or("")
+        .to_string();
+    let skip: String = matches
+        .value_of("skip")
+        .unwrap_or("")
+        .to_string();
+    let indent: usize = matches
+        .value_of("indent")
+        .unwrap_or("0")
+        .parse::<usize>()
+        .unwrap();
 
-    let filename = &args[1];
-    let indent = &args[2].parse::<usize>().unwrap();
-    let ignore = &args[3];
-
-    debug!("File to flatten: {}", filename);
+    info!("File to flatten: {}", filename);
+    info!("Skip regex: {}", skip);
+    info!("Custom indent: {}", indent);
 
     let re = Regex::new(r"^(\s+)(\S.+)$|^(\S.+)$").unwrap();
-    let ignore_re = Regex::new(ignore).unwrap();
+    let ignore_re = Regex::new(&skip).unwrap();
     let mut flat_config = String::from("");
     let mut previous_spaces: usize = 0;
     let mut line_map: IndexMap<usize, String> = IndexMap::new();
@@ -45,7 +66,7 @@ fn main() {
                         let text2 = caps.get(2).map_or("", |m| m.as_str());
                         let text3 = caps.get(3).map_or("", |m| m.as_str());
                         let current_spaces: usize = *&text1.chars().count();
-                        if current_spaces < *indent {
+                        if current_spaces < indent {
                             continue;
                         }
                         match ignore_re.captures(&string_line){
